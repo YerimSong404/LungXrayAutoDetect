@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Lung desease detect </title>
+    <link rel = "stylesheet" type = "text/css" href = "/static/style2.css">
+    <meta name = "viewport" content="width=devide-width, initial-scale = 1">
+    <meta name ="description" content="폐 xray사진 자동 분석">
+</head>
+
+<body>
+<H1>흉부 X-Ray 사진 자동 분석</H1>
+
+<div class ="analysis">
+    <div class = "image-upload">
+        <form id = "upload" class = "uploadForm" action = "/fileupload" method="post" enctype="multipart/form-data">
+            <h2 class = "uploadText" >사진 업로드</h2>
+            <div class = "imageSection">
+                <img id = "preview" width="400" alt =" "/>
+            </div>
+            <div id ="upload">
+                <label class = "input-file-button" for ="fileUpload">
+                    업로드
+                </label>
+                <input type = "file" id ="fileUpload" accept="image/*" style = "display:none"/>
+                <!--<input type = "submit" id = "fileSelect" value = "선택" />-->
+                <button type = "button" id = "submitButton">선택완료</button>
+                <div id = "ImageUploadMessage" class = "uploadMessage"></div>
+            </div>
+
+        </form>
+    </div>
+    <div class = "detect" >
+        <h2 class = "resultText">진단 결과</h2>
+        <div id = "result-container" class = "result-container" >
+
+        </div>
+        <form id = "detect" action = "/detect" method="GET">
+            <button type = "button" id = "detectButton" style="float: right">진단하기</button>
+        </form>
+
+    </div>
+<!--
+    <div class = "symptom-explain">
+
+    </div> -->
+</div>
+
+<div class ="manual">
+   <h3> ⦁ 이미지 업로드 ⦁ </h3>
+        1. 업로드를 눌러 진단하고 싶은 X-Ray사진을 선택합니다.
+        <br>2. 선택완료를 누르면 사진이 저장됩니다.
+        <br>3. 사진을 변경하고 싶을 경우 업로드를 눌러 파일을 재선택합니다.<br><br>
+        <h4> ⦁ 진단 결과 확인 ⦁ </h4>
+        우측 하단 진단하기 버튼을 누르면 진단 결과 상위 5개 질환 명과 확률이 표시됩니다.
+</div>
+
+<script>
+var fileInput = document.getElementById("fileUpload");
+var preview = document.getElementById("preview");
+var fileSelectButton = document.getElementById("fileSelect");
+var uploadButton = document.getElementById("uploadButton");
+var messageContainer = document.getElementById("ImageUploadMessage");
+var messageContainer2 = document.getElementById("ImageUploadMessage");
+var detectButton = document.getElementById("detectButton")
+var fileName;
+const resultContainer = document.getElementById("result-container");
+var downloadButton = document.getElementById("downloadButton");
+fileInput.addEventListener("change", function () {
+    if (fileInput.files && fileInput.files[0]) {
+        var reader = new FileReader();
+
+        reader.onload = function(e) {
+            preview.src = e.target.result;
+            uploadButton.click();
+        };
+        reader.readAsDataURL(fileInput.files[0]);
+    }
+});
+
+var submitButton = document.getElementById("submitButton");
+submitButton.addEventListener("click", function (){
+    if(fileInput.files && fileInput.files[0]){
+        var formData = new FormData();
+        formData.append("file", fileInput.files[0]);
+
+        fetch("/fileupload", { method: "POST", body: formData })
+            .then(function (response) {
+                if (response.ok) {
+                    messageContainer.textContent = "파일이 업로드되었습니다.";
+                    fileName = fileInput.files[0].name;
+
+                    // detect 호출
+                    if (fileName) {
+                        return fetch("/detect?file_path=" + fileName, { method: "GET" });
+                    }
+                } else {
+                    messageContainer.textContent = "파일 업로드 중 오류가 발생했습니다.";
+                }
+            })
+            .then(function (detectResponse) {
+                if (detectResponse) {
+                    if (detectResponse.ok) {
+                        messageContainer2.textContent = "진단이 완료되었습니다.";
+                    } else {
+                        messageContainer2.textContent = "진단 중 오류가 발생했습니다.";
+                    }
+                }
+            })
+            .catch(function (error) {
+                messageContainer.textContent = "파일 업로드 또는 진단 중 오류가 발생했습니다.";
+            });
+    }
+})
+
+detectButton.addEventListener("click", function(){
+
+    if(fileName) {
+        fetch("/showing2?file_name=" + fileName, {
+            method: "GET"
+        })
+            .then(response => response.json()) // JSON 데이터로 파싱
+            .then(result => {
+                if (result.length > 0) {
+                    const resultHTML = result.map(item => `
+                    <div>
+                        <strong> ${item.d_label}</strong>
+                        <strong>(${item.d_name})</strong>
+                        <strong>: ${item.percent}</strong> <br><br>
+                    </div>
+                `).join("");
+                    resultContainer.innerHTML = resultHTML;
+                } else {
+                    resultContainer.innerHTML = "진단 결과가 발견되지 않았습니다.";
+                }
+            })
+            .catch(error => {
+                console.error("진단 결과가 발견되지 않았습니다.", error);
+                resultContainer.innerHTML = "진단 결과 출력 중 에러";
+            });
+    }
+})
+</script>
+</body>
+</html>
